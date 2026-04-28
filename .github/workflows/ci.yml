@@ -1,12 +1,13 @@
-name: CI Security
+name: CI Basic
 
 on:
   push:
-    branches: [ desarrollo ]
+    branches:
+      - desarrollo
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: self-hosted
 
     steps:
       - name: Checkout código
@@ -50,6 +51,3 @@ jobs:
         with:
           name: ZAP-Report
           path: report_html.html
-
-
-        runs-on: self-hosted
