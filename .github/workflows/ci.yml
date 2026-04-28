@@ -25,9 +25,7 @@ jobs:
         run: node ./node_modules/jest/bin/jest.js
 
       - name: SAST con Semgrep
-        run: |
-          pip3 install --user semgrep
-          ~/.local/bin/semgrep --config=auto
+        run: semgrep --config=auto
 
       - name: Escaneo de dependencias
         run: npm audit || true
@@ -35,7 +33,7 @@ jobs:
       - name: Iniciar aplicación
         run: |
           npm start &
-          sleep 30
+          sleep 20
           curl -I http://localhost:3001 || true
 
       - name: Ejecutar ZAP Scan
