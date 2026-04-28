@@ -50,3 +50,6 @@ jobs:
         with:
           name: ZAP-Report
           path: report_html.html
+
+
+        runs-on: self-hosted
