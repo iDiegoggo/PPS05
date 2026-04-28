@@ -1,4 +1,4 @@
-name: CD Despliegue
+name: CD - Despliegue
 
 on:
   push:
@@ -13,8 +13,13 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Parar despliegue anterior
-        run: docker-compose down || true
+      - name: Parar contenedores antiguos
+        run: |
+          docker-compose down || true
+          docker rm -f mini-secure-app || true
+
+      - name: Limpiar imágenes antiguas (opcional)
+        run: docker system prune -f || true
 
       - name: Construir y levantar aplicación
         run: docker-compose up -d --build
@@ -22,8 +27,8 @@ jobs:
       - name: Ver contenedores
         run: docker ps
 
-      - name: Esperar a que arranque
+      - name: Esperar arranque
         run: sleep 10
 
-      - name: Comprobar aplicación
+      - name: Test app
         run: curl http://localhost:3001 || true
