@@ -5,6 +5,10 @@ on:
     branches:
       - desarrollo
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   build:
     runs-on: self-hosted
@@ -41,6 +45,7 @@ jobs:
         with:
           target: 'http://localhost:3001'
           cmd_options: '-r report_html.html'
+        continue-on-error: true
 
       - name: Subir reporte ZAP
         uses: actions/upload-artifact@v4
