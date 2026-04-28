@@ -1,0 +1,30 @@
+name: Deploy Monitoring
+
+on:
+  push:
+    branches:
+      - desarrollo
+    paths:
+      - 'monitoring/**'
+      - '.github/workflows/monitoring.yml'
+
+jobs:
+  deploy-monitoring:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Parar monitoring
+        run: |
+          cd monitoring
+          docker-compose down || true
+
+      - name: Levantar monitoring
+        run: |
+          cd monitoring
+          docker-compose up -d
+
+      - name: Ver contenedores
+        run: docker ps
