@@ -1,4 +1,4 @@
-name: CI Basic
+name: CI Security
 
 on:
   push:
@@ -26,10 +26,8 @@ jobs:
 
       - name: SAST con Semgrep
         run: |
-          sudo apt update
-          sudo apt install -y python3-pip
-          pip install semgrep
-          semgrep --config=auto
+          pip3 install --user semgrep
+          ~/.local/bin/semgrep --config=auto
 
       - name: Escaneo de dependencias
         run: npm audit || true
@@ -37,7 +35,7 @@ jobs:
       - name: Iniciar aplicación
         run: |
           npm start &
-          sleep 120
+          sleep 30
           curl -I http://localhost:3001 || true
 
       - name: Ejecutar ZAP Scan
@@ -46,7 +44,7 @@ jobs:
           target: 'http://localhost:3001'
           cmd_options: '-r report_html.html'
 
-      - name: Subir reporte
+      - name: Subir reporte ZAP
         uses: actions/upload-artifact@v4
         with:
           name: ZAP-Report
