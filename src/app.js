@@ -4,7 +4,9 @@ const helmet = require('helmet');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Seguridad básica
+// =====================
+// SEGURIDAD BÁSICA
+// =====================
 app.use(helmet());
 app.disable('x-powered-by');
 
@@ -13,11 +15,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Parsers
+// =====================
+// PARSERS
+// =====================
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// "Base de datos" en memoria
+// =====================
+// "BASE DE DATOS" EN MEMORIA
+// =====================
 const tickets = [
   { id: 1, title: 'Error al iniciar sesión', description: 'No puedo acceder con mi usuario' },
   { id: 2, title: 'Fallo en el panel', description: 'El dashboard carga lentamente' }
@@ -25,13 +31,18 @@ const tickets = [
 
 const comments = [];
 
-// Home
+// =====================
+// HOME
+// =====================
 app.get('/', (req, res) => {
   res.send(`
     <html>
-      <head><title>Mini Secure Tickets App</title></head>
+      <head>
+        <title>Mini Secure Tickets App</title>
+      </head>
       <body>
         <h1>Mini Secure Tickets App</h1>
+        <p>Aplicación de ejemplo para prácticas DevSecOps.</p>
 
         <ul>
           <li><a href="/login">Login</a></li>
@@ -42,30 +53,32 @@ app.get('/', (req, res) => {
 
         <h2>Buscar tickets</h2>
         <form action="/search" method="GET">
-          <input type="text" name="q" />
+          <input type="text" name="q" placeholder="Buscar..." />
           <button type="submit">Buscar</button>
         </form>
 
-        <h2>Comentario</h2>
+        <h2>Añadir comentario</h2>
         <form action="/comment" method="POST">
-          <textarea name="comment"></textarea>
-          <button type="submit">Enviar</button>
+          <textarea name="comment" rows="4" cols="50"></textarea><br/>
+          <button type="submit">Guardar comentario</button>
         </form>
       </body>
     </html>
   `);
 });
 
-// Login
+// =====================
+// LOGIN
+// =====================
 app.get('/login', (req, res) => {
   res.send(`
     <html>
       <head><title>Login</title></head>
       <body>
         <h1>Login</h1>
-        <form method="POST" action="/login">
-          <input name="username" />
-          <input name="password" type="password" />
+        <form action="/login" method="POST">
+          <input type="text" name="username" />
+          <input type="password" name="password" />
           <button>Entrar</button>
         </form>
       </body>
@@ -77,12 +90,18 @@ app.post('/login', (req, res) => {
   const { username } = req.body;
 
   res.send(`
-    <h1>Bienvenido ${username || 'usuario'}</h1>
-    <a href="/">Volver</a>
+    <html>
+      <body>
+        <h1>Bienvenido ${username || 'usuario'}</h1>
+        <a href="/">Volver</a>
+      </body>
+    </html>
   `);
 });
 
-// Tickets
+// =====================
+// TICKETS (IMPORTANTE PARA TEST)
+// =====================
 app.get('/tickets', (req, res) => {
   const items = tickets.map(t => `
     <li>
@@ -92,13 +111,21 @@ app.get('/tickets', (req, res) => {
   `).join('');
 
   res.send(`
-    <h1>Tickets</h1>
-    <ul>${items}</ul>
-    <a href="/">Volver</a>
+    <html>
+      <body>
+        <h1>Listado de tickets</h1>
+        <ul>
+          ${items}
+        </ul>
+        <a href="/">Volver</a>
+      </body>
+    </html>
   `);
 });
 
-// Crear ticket (FIX DEL CI)
+// =====================
+// CREAR TICKET (TEST POST)
+// =====================
 app.post('/ticket/new', (req, res) => {
   const { title, description } = req.body;
 
@@ -109,24 +136,36 @@ app.post('/ticket/new', (req, res) => {
   });
 
   res.send(`
-    <h1>Ticket guardado correctamente</h1>
-    <a href="/tickets">Ver tickets</a>
+    <html>
+      <body>
+        <h1>Ticket guardado correctamente</h1>
+        <a href="/tickets">Ver tickets</a>
+      </body>
+    </html>
   `);
 });
 
-// Formulario ticket
+// =====================
+// FORM NUEVO TICKET
+// =====================
 app.get('/ticket/new', (req, res) => {
   res.send(`
-    <h1>Crear ticket</h1>
-    <form method="POST" action="/ticket/new">
-      <input name="title" />
-      <textarea name="description"></textarea>
-      <button>Guardar</button>
-    </form>
+    <html>
+      <body>
+        <h1>Crear ticket</h1>
+        <form action="/ticket/new" method="POST">
+          <input name="title" />
+          <textarea name="description"></textarea>
+          <button>Guardar</button>
+        </form>
+      </body>
+    </html>
   `);
 });
 
-// Search
+// =====================
+// SEARCH
+// =====================
 app.get('/search', (req, res) => {
   const q = req.query.q || '';
 
@@ -136,14 +175,20 @@ app.get('/search', (req, res) => {
   );
 
   res.send(`
-    <h1>Resultados: ${q}</h1>
-    <ul>
-      ${results.map(t => `<li>${t.title} - ${t.description}</li>`).join('')}
-    </ul>
+    <html>
+      <body>
+        <h1>Resultados de búsqueda para: ${q}</h1>
+        <ul>
+          ${results.map(t => `<li>${t.title} - ${t.description}</li>`).join('')}
+        </ul>
+      </body>
+    </html>
   `);
 });
 
-// Comments
+// =====================
+// COMMENTS
+// =====================
 app.post('/comment', (req, res) => {
   comments.push(req.body.comment || '');
   res.send('<h1>Comentario guardado</h1>');
@@ -151,17 +196,25 @@ app.post('/comment', (req, res) => {
 
 app.get('/comments', (req, res) => {
   res.send(`
-    <h1>Comentarios</h1>
-    <ul>
-      ${comments.map(c => `<li>${c}</li>`).join('')}
-    </ul>
+    <html>
+      <body>
+        <h1>Comentarios</h1>
+        <ul>
+          ${comments.map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      </body>
+    </html>
   `);
 });
 
-// Export para tests
+// =====================
+// EXPORT PARA TESTS
+// =====================
 module.exports = app;
 
-// Start server
+// =====================
+// START SERVER
+// =====================
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`App running on http://localhost:${PORT}`);
