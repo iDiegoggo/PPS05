@@ -1,18 +1,64 @@
 const express = require('express');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const csrf = require('csurf');
+
 const app = express();
-app.use(helmet());
-app.disable('x-powered-by');
-app.use((req, res, next) => {
-  res.setHeader("Cache-Control", "no-store");
-  next();
-});
 const PORT = process.env.PORT || 3001;
 
+//ocultar Express en cabeceras
+app.disable('x-powered-by');
+
+//helmet con headers de seguridad explícitos
+app.use(
+  helmet({
+    contentSecurityPolicy: false
+  })
+);
+
+//csp explicita
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"]
+    }
+  })
+);
+
+//anti-clickjacking explícito
+app.use(helmet.frameguard({ action: 'deny' }));
+
+//headers de aislamiento de origen
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+//no-cache más completo
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  next();
+});
+
+//parsers y cookies antes de CSRF
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cookieParser());
 
-// "Base de datos" en memoria
+//CSRF con cookie
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    sameSite: 'strict'
+  }
+});
+
 const tickets = [
   { id: 1, title: 'Error al iniciar sesión', description: 'No puedo acceder con mi usuario' },
   { id: 2, title: 'Fallo en el panel', description: 'El dashboard carga lentamente' }
@@ -20,8 +66,18 @@ const tickets = [
 
 const comments = [];
 
-// Página principal
-app.get('/', (req, res) => {
+//prevencion XSS
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+//añadimos CSFR
+app.get('/', csrfProtection, (req, res) => {
   res.send(`
     <html>
       <head>
@@ -46,6 +102,7 @@ app.get('/', (req, res) => {
 
         <h2>Añadir comentario</h2>
         <form action="/comment" method="POST">
+          <input type="hidden" name="_csrf" value="${req.csrfToken()}" />
           <textarea name="comment" rows="4" cols="50" placeholder="Escribe un comentario"></textarea><br/>
           <button type="submit">Guardar comentario</button>
         </form>
@@ -54,14 +111,16 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Login simple
-app.get('/login', (req, res) => {
+
+//GET /login
+app.get('/login', csrfProtection, (req, res) => {
   res.send(`
     <html>
       <head><title>Login</title></head>
       <body>
         <h1>Login</h1>
         <form action="/login" method="POST">
+          <input type="hidden" name="_csrf" value="${req.csrfToken()}" />
           <label>Usuario:</label>
           <input type="text" name="username" /><br/><br/>
           <label>Contraseña:</label>
@@ -74,13 +133,15 @@ app.get('/login', (req, res) => {
   `);
 });
 
-app.post('/login', (req, res) => {
+//POST /login
+app.post('/login', csrfProtection, (req, res) => {
   const { username } = req.body;
+
   res.send(`
     <html>
       <head><title>Bienvenido</title></head>
       <body>
-        <h1>Bienvenido, ${username || 'usuario'}</h1>
+        <h1>Bienvenido, ${escapeHtml(username || 'usuario')}</h1>
         <p>Login simulado correctamente.</p>
         <p><a href="/">Ir al inicio</a></p>
       </body>
@@ -94,8 +155,8 @@ app.get('/tickets', (req, res) => {
     .map(
       (t) => `
         <li>
-          <strong>${t.title}</strong><br/>
-          ${t.description}
+          <strong>${escapeHtml(t.title)}</strong><br/>
+          ${escapeHtml(t.description)}
         </li>
       `
     )
@@ -114,13 +175,15 @@ app.get('/tickets', (req, res) => {
 });
 
 // Formulario nuevo ticket
-app.get('/ticket/new', (req, res) => {
+// CAMBIO 13: CSRF en GET /ticket/new
+app.get('/ticket/new', csrfProtection, (req, res) => {
   res.send(`
     <html>
       <head><title>Nuevo ticket</title></head>
       <body>
         <h1>Crear ticket</h1>
         <form action="/ticket/new" method="POST">
+          <input type="hidden" name="_csrf" value="${req.csrfToken()}" />
           <label>Título:</label>
           <input type="text" name="title" /><br/><br/>
           <label>Descripción:</label><br/>
@@ -133,7 +196,8 @@ app.get('/ticket/new', (req, res) => {
   `);
 });
 
-app.post('/ticket/new', (req, res) => {
+// CAMBIO 14: CSRF en POST /ticket/new
+app.post('/ticket/new', csrfProtection, (req, res) => {
   const { title, description } = req.body;
 
   tickets.push({
@@ -159,8 +223,8 @@ app.get('/search', (req, res) => {
 
   const results = tickets.filter(
     (t) =>
-      t.title.toLowerCase().includes(q.toLowerCase()) ||
-      t.description.toLowerCase().includes(q.toLowerCase())
+      t.title.toLowerCase().includes(String(q).toLowerCase()) ||
+      t.description.toLowerCase().includes(String(q).toLowerCase())
   );
 
   const items = results.length
@@ -168,8 +232,8 @@ app.get('/search', (req, res) => {
         .map(
           (t) => `
             <li>
-              <strong>${t.title}</strong><br/>
-              ${t.description}
+              <strong>${escapeHtml(t.title)}</strong><br/>
+              ${escapeHtml(t.description)}
             </li>
           `
         )
@@ -180,7 +244,7 @@ app.get('/search', (req, res) => {
     <html>
       <head><title>Búsqueda</title></head>
       <body>
-        <h1>Resultados de búsqueda para: ${q}</h1>
+        <h1>Resultados de búsqueda para: ${escapeHtml(q)}</h1>
         <ul>${items}</ul>
         <p><a href="/">Volver</a></p>
       </body>
@@ -189,7 +253,8 @@ app.get('/search', (req, res) => {
 });
 
 // Guardar comentario
-app.post('/comment', (req, res) => {
+// CAMBIO 15: CSRF en POST /comment
+app.post('/comment', csrfProtection, (req, res) => {
   const { comment } = req.body;
 
   comments.push(comment || '');
@@ -208,7 +273,7 @@ app.post('/comment', (req, res) => {
 // Ver comentarios
 app.get('/comments', (req, res) => {
   const items = comments.length
-    ? comments.map((c) => `<li>${c}</li>`).join('')
+    ? comments.map((c) => `<li>${escapeHtml(c)}</li>`).join('')
     : '<li>No hay comentarios todavía</li>';
 
   res.send(`
